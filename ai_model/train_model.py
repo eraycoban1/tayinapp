@@ -1,40 +1,44 @@
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import joblib
 import os
 
-# Dummy veriyi oku
+# Veri dosyasını yükle
 df = pd.read_csv("ai_model/dummy_data.csv")
 
-# Kategorik verileri encode et
-track_enc = LabelEncoder()
-jockey_enc = LabelEncoder()
-trainer_enc = LabelEncoder()
+# 'form_last_5' sütununu float ortalamaya çevir
+def form_to_avg(form_string):
+    try:
+        return sum([int(x) for x in form_string.split("-")]) / 5
+    except:
+        return 0.0
 
-df["track_condition"] = track_enc.fit_transform(df["track_condition"])
-df["jockey"] = jockey_enc.fit_transform(df["jockey"])
-df["trainer"] = trainer_enc.fit_transform(df["trainer"])
+df["form_last_5"] = df["form_last_5"].apply(form_to_avg)
+# race_date sütununu sayıya çevir (örnek: timestamp formatı)
+df["race_date"] = pd.to_datetime(df["race_date"]).astype(int) / 10**9  # saniye cinsinden epoch time
 
-# Özellikler ve hedef
-X = df[[
-    "distance", "rank", "weight", "handicap_point", "earnings",
-    "track_condition", "jockey", "trainer",
-    "avg_rank_last_5", "speed_index", "win_ratio_last_5"
-]]
-y = df["placement"]
+
+# Encode edilecek kategorik sütunlar
+categorical_columns = ["jockey", "trainer", "track_condition", "race_class", "horse_name"]
+encoders = {}
+
+for col in categorical_columns:
+    encoder = LabelEncoder()
+    df[col] = encoder.fit_transform(df[col])
+    encoders[col] = encoder
+    joblib.dump(encoder, f"ai_model/models/{col}_enc.pkl")
+
+# Özellikler ve hedef sütun
+X = df.drop(columns=["rank"])
+y = df["rank"]
 
 # Modeli eğit
 model = RandomForestClassifier()
 model.fit(X, y)
 
-# Klasör yoksa oluştur
-os.makedirs("ai_model/models", exist_ok=True)
-
-# Model ve encoderları kaydet
+# Modeli kaydet
 joblib.dump(model, "ai_model/models/horse_model.pkl")
-joblib.dump(track_enc, "ai_model/models/track_condition_enc.pkl")
-joblib.dump(jockey_enc, "ai_model/models/jockey_enc.pkl")
-joblib.dump(trainer_enc, "ai_model/models/trainer_enc.pkl")
 
-print("✅ Model ve encoderlar kaydedildi.")
+print("✅ Model ve encoder'lar başarıyla kaydedildi.")

@@ -1,16 +1,11 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from app.database import Base, engine
-from app.models import user, horse, horse_stats
+from fastapi.security import OAuth2PasswordBearer
 from app.routes import user as user_routes
 from app.routes import horse as horse_routes
 from app.routes import horse_stats as horse_stats_routes
 from app.routes import predict as predict_routes
 
-# Veritabanı tablolarını oluştur
-Base.metadata.create_all(bind=engine)
-
-# Uygulama tanımı
 app = FastAPI(
     title="Tayin",
     description="Yarış atı tahmin API'si",
@@ -28,7 +23,9 @@ app.include_router(predict_routes.router, tags=["Tahmin"])
 def root():
     return {"message": "🚀 AtIntel API is running!"}
 
-# Swagger için JWT Authorize butonu
+# ✅ Swagger için JWT Authorize butonu (Burası önemli)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -45,9 +42,9 @@ def custom_openapi():
             "bearerFormat": "JWT"
         }
     }
-    for path in openapi_schema["paths"].values():
-        for method in path.values():
-            method["security"] = [{"BearerAuth": []}]
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
